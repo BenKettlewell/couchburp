@@ -1,18 +1,26 @@
 package com.prevsec.couchburp;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.net.URL;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.persistence.EntityExistsException;
+import javax.xml.bind.JAXBException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.mashape.unirest.http.HttpMethod;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import com.prevsec.couchburp.burp.jaxbjson.DBDescriptor;
+import com.prevsec.couchburp.burp.jaxbjson.JsonAdapter;
 
 public class CouchClient {
 	private Logger log = Logger.getLogger(this.getClass().getName());
@@ -28,7 +36,7 @@ public class CouchClient {
 		connectmessage = "Unable to establish HTTP connection with: " + url.toString();
 	}
 
-	public CouchClient(URL url) throws Exception {
+	public CouchClient(URL url) throws UnirestException, JSONException, Exception {
 		this.url = url;
 		init();
 		if (!testConnection()) {
@@ -84,11 +92,37 @@ public class CouchClient {
 			throw new UnirestException(connectmessage);
 		}
 	}
+/*
+	public DBDescriptor addDatabaseDescriptor(String database, DBDescriptor descriptor) {
+		try {
+			ByteArrayOutputStream os = new ByteArrayOutputStream();
+			JsonAdapter.mashall(descriptor, os);
+			JSONObject response = Unirest.put(url.toString() + database + "/root").body(os.toByteArray()).asJson()
+					.getBody().getObject();
+			if (!response.optString("error").isEmpty() && response.optString("error").equals("conflict")) {
+				return Optional.of(Unirest.get(url.toString() + database + "/root").asJson().getBody().getObject().getString("_rev"));
+			}
+			if (!response.optBoolean("ok")) {
+				String error = parseError(response);
+				log.warning(error);
+				throw new JSONException(error);
+			}
+			descriptor.setRevision(response.getString("_rev"));
+		} catch (UnirestException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (JAXBException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
 
-	public void addDatabaseDescriptor(String database){
-	//	Unirest.put(url.toString() + database).body(body)
 	}
-
+	
+	public Optional<String> checkConflict(){
+		
+	}
+*/
 	public synchronized String getUUID() throws Exception {
 		try {
 			return uuidManager.getUUID();

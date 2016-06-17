@@ -2,22 +2,20 @@ package com.prevsec.couchburp.burp.jaxbjson;
 
 import java.util.List;
 
-public class DBDescriptor {
+import javax.swing.tree.DefaultMutableTreeNode;
 
-	private String uuid;
+public class DBDescriptor extends DefaultMutableTreeNode {
+
+	private String uuid = "root";
 	private String revision;
 	private String hostname;
 	private String description;
-	private List<String> notes;
 
-	public DBDescriptor() {
-
-	}
-
-	public DBDescriptor(String hostname, String description, List<String> notes) {
+	public DBDescriptor(String hostname, String description) {
+		setUserObject(hostname);
 		this.hostname = hostname;
 		this.description = description;
-		this.notes = notes;
+
 	}
 
 	public String getUuid() {
@@ -51,13 +49,4 @@ public class DBDescriptor {
 	public void setDescription(String description) {
 		this.description = description;
 	}
-
-	public List<String> getNotes() {
-		return notes;
-	}
-
-	public void setNotes(List<String> notes) {
-		this.notes = notes;
-	}
-
 }
