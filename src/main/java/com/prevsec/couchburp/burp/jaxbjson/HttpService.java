@@ -1,3 +1,8 @@
+/* Component of CouchDB collaboration plugin for Burp Suite Professional Edition
+ * Author: William Patrick Herrin 
+ * Date: Jun 20, 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ */
 package com.prevsec.couchburp.burp.jaxbjson;
 
 import burp.IHttpService;

@@ -1,26 +1,23 @@
+/* Component of CouchDB collaboration plugin for Burp Suite Professional Edition
+ * Author: William Patrick Herrin 
+ * Date: Jun 20, 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ */
 package com.prevsec.couchburp;
 
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.net.URL;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.persistence.EntityExistsException;
-import javax.xml.bind.JAXBException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.mashape.unirest.http.HttpMethod;
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import com.prevsec.couchburp.burp.jaxbjson.DBDescriptor;
-import com.prevsec.couchburp.burp.jaxbjson.JsonAdapter;
 
 public class CouchClient {
 	private Logger log = Logger.getLogger(this.getClass().getName());

@@ -1,3 +1,8 @@
+/* Component of CouchDB collaboration plugin for Burp Suite Professional Edition
+ * Author: William Patrick Herrin 
+ * Date: Jun 20, 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ */
 package com.prevsec.couchburp.ui;
 
 import javax.swing.JFrame;
@@ -23,20 +28,19 @@ import javax.swing.JLabel;
 import java.awt.FlowLayout;
 import javax.swing.JTextField;
 
-public class BurpFrame extends JFrame {
+public class BurpFrame extends JTabbedPane {
+	private boolean isBurp;
 	private BurpController controller;
 	private JTextField txtCouchText;
 
-	public BurpFrame(BurpController controller) {
+	public BurpFrame(BurpController controller, boolean isBurp) {
+		this.isBurp = isBurp;
 		this.controller = controller;
-
-		JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
-		getContentPane().add(tabbedPane, BorderLayout.CENTER);
 
 		JPanel optionspanel = new JPanel();
 		FlowLayout flowLayout = (FlowLayout) optionspanel.getLayout();
 		flowLayout.setAlignment(FlowLayout.LEFT);
-		tabbedPane.addTab("Options", null, optionspanel, null);
+		addTab("Options", null, optionspanel, null);
 
 		JLabel lblNewLabel = new JLabel("CouchDB Url:");
 		optionspanel.add(lblNewLabel);
@@ -90,9 +94,22 @@ public class BurpFrame extends JFrame {
 		JSplitPane vertsplit = new JSplitPane();
 		vertsplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		vertsplit.setLeftComponent(horzsplit);
-		vertsplit.setRightComponent(new Label("preview will go here"));
 
-		tabbedPane.addTab("The Stash and Tree", null, vertsplit, null);
+		addTab("The Stash and Tree", null, vertsplit, null);
+
+		JPanel infoPanel = new JPanel();
+		vertsplit.setRightComponent(infoPanel);
+		infoPanel.setLayout(new BorderLayout(0, 0));
+
+		JTabbedPane requestResponsePane = new JTabbedPane(JTabbedPane.TOP);
+		if (isBurp) {
+			requestResponsePane.addTab("Request", controller.getRequestPreview().getComponent());
+			requestResponsePane.addTab("Response", controller.getResponsePreview().getComponent());
+		} else {
+			requestResponsePane.add("Request", new Label("Burp Editor would go here"));
+			requestResponsePane.add("Request", new Label("Burp Editor would go here"));
+		}
+		infoPanel.add(requestResponsePane, BorderLayout.NORTH);
 	}
 
 }

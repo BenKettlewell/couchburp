@@ -1,0 +1,14 @@
+Node Management:
+	-Search by category
+	-Auto add by category
+	-Remove
+Todo:
+	-Search by UUID
+	-Implement change listeners for couchdb
+	-Sort by OWASP
+		
+	
+		
+		
+Reminder.
+When collecting changed nodes from couchdb. Nodes with NO PARENTS, MUST BE ADDED TO THE TREE FIRST. Followed by nodes with ONLY CATEGORIES. Finally, add the other children and stuff ya.
