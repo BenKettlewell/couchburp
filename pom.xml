@@ -38,7 +38,7 @@
 							<goal>shade</goal>
 						</goals>
 						<configuration>
-							<minimizeJar>true</minimizeJar>
+							<!-- <minimizeJar>true</minimizeJar> -->
 							<!-- Declares a main method for the meta.inf file in the jar. Not 
 								necessary in this context, but keeping for future reference. -->
 							<!-- <transformers> <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer"> 

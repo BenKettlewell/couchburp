@@ -8,7 +8,7 @@
  * Date: Jun 20, 2016
  * Email: wherrin@prevsec.com, willherrin1@gmail.com
  */
-package com.prevsec.couchburp.burp.jaxbjson;
+package com.prevsec.couchburp.models;
 
 import com.google.gson.JsonObject;
 

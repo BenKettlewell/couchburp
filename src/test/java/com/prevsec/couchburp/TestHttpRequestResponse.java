@@ -5,7 +5,7 @@
  */
 package com.prevsec.couchburp;
 
-import com.prevsec.couchburp.burp.jaxbjson.HttpService;
+import com.prevsec.couchburp.models.HttpService;
 
 import burp.IHttpRequestResponse;
 import burp.IHttpService;

@@ -31,6 +31,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.ListSelectionModel;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -57,11 +58,13 @@ public class BurpFrame extends JTabbedPane {
 				controller.updatePreview((DefaultMutableTreeNode) tree.getLastSelectedPathComponent());
 			}
 		});
+
 		JScrollPane stashscroll = new JScrollPane();
 		stashscroll.setColumnHeaderView(new Label("The Stash"));
 
 		JTable stash = new JTable(controller.getTableModel());
-
+		stash.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		stash.getSelectionModel().addListSelectionListener(e -> controller.updatePreview(stash.getSelectedRow()));
 		stashscroll.setViewportView(stash);
 		JScrollPane treescroll = new JScrollPane();
 		treescroll.setColumnHeaderView(new Label("The Tree"));
@@ -71,9 +74,24 @@ public class BurpFrame extends JTabbedPane {
 		horzRightPanel.setLayout(new BorderLayout(0, 0));
 		horzRightPanel.add(treescroll);
 		JSplitPane horzsplit = new JSplitPane();
+		horzsplit.setResizeWeight(0.5);
 		horzsplit.setOrientation(JSplitPane.HORIZONTAL_SPLIT);
-		horzsplit.setLeftComponent(stashscroll);
+		JPanel horzLeftPanel = new JPanel();
+		horzLeftPanel.setLayout(new BorderLayout(0, 0));
+		horzLeftPanel.add(stashscroll, BorderLayout.CENTER);
+		horzsplit.setLeftComponent(horzLeftPanel);
 
+		JPanel leftPanelButtons = new JPanel();
+		horzLeftPanel.add(leftPanelButtons, BorderLayout.SOUTH);
+
+		JButton btnAddToStash = new JButton("Add By Category");
+		btnAddToStash.addActionListener(e -> controller.addByCategory(stash.getSelectedRow()));
+		leftPanelButtons.add(btnAddToStash);
+
+		JButton btnAddToSelected = new JButton("Add To Selected");
+		btnAddToSelected.addActionListener(
+				e -> controller.addToSelected(stash.getSelectedRow(), tree.getLastSelectedPathComponent()));
+		leftPanelButtons.add(btnAddToSelected);
 		horzsplit.setRightComponent(horzRightPanel);
 
 		JPanel panel = new JPanel();
@@ -90,74 +108,16 @@ public class BurpFrame extends JTabbedPane {
 		JButton btnNewButton_1 = new JButton("New button");
 		panel.add(btnNewButton_1);
 		JSplitPane vertsplit = new JSplitPane();
+		vertsplit.setResizeWeight(0.5);
 		vertsplit.setOrientation(JSplitPane.VERTICAL_SPLIT);
 		vertsplit.setLeftComponent(horzsplit);
 
 		addTab("The Stash and Tree", null, vertsplit, null);
 
 		JPanel infoPanel = new JPanel();
+		controller.setInfo(infoPanel);
 		vertsplit.setRightComponent(infoPanel);
 		infoPanel.setLayout(new BorderLayout(0, 0));
-
-		JTabbedPane requestResponsePane = new JTabbedPane(JTabbedPane.TOP);
-		if (isBurp) {
-			requestResponsePane.addTab("Request", controller.getRequestPreview().getComponent());
-			requestResponsePane.addTab("Response", controller.getResponsePreview().getComponent());
-		} else {
-			requestResponsePane.add("Request", new Label("Burp Editor would go here"));
-			requestResponsePane.add("Request", new Label("Burp Editor would go here"));
-		}
-		infoPanel.add(requestResponsePane, BorderLayout.NORTH);
-
-		JPanel infoPane = new JPanel();
-		infoPanel.add(infoPane, BorderLayout.CENTER);
-		GridBagLayout gbl_infoPane = new GridBagLayout();
-		gbl_infoPane.columnWidths = new int[] { 127, 787, 0 };
-		gbl_infoPane.rowHeights = new int[] { 40, 0, 0, 0 };
-		gbl_infoPane.columnWeights = new double[] { 0.0, 1.0, Double.MIN_VALUE };
-		gbl_infoPane.rowWeights = new double[] { 0.0, 1.0, 0.0, Double.MIN_VALUE };
-		infoPane.setLayout(gbl_infoPane);
-
-		JLabel lblCategory = new JLabel("Category:");
-		GridBagConstraints gbc_lblCategory = new GridBagConstraints();
-		gbc_lblCategory.fill = GridBagConstraints.HORIZONTAL;
-		gbc_lblCategory.insets = new Insets(0, 0, 5, 5);
-		gbc_lblCategory.gridx = 0;
-		gbc_lblCategory.gridy = 0;
-		infoPane.add(lblCategory, gbc_lblCategory);
-
-		JComboBox comboBox = new JComboBox();
-		comboBox.setModel(new DefaultComboBoxModel(OWASPCategory.values()));
-		GridBagConstraints gbc_comboBox = new GridBagConstraints();
-		gbc_comboBox.fill = GridBagConstraints.BOTH;
-		gbc_comboBox.insets = new Insets(0, 0, 5, 0);
-		gbc_comboBox.gridx = 1;
-		gbc_comboBox.gridy = 0;
-		infoPane.add(comboBox, gbc_comboBox);
-
-		JLabel lblNewLabel_1 = new JLabel("Comment:");
-		GridBagConstraints gbc_lblNewLabel_1 = new GridBagConstraints();
-		gbc_lblNewLabel_1.fill = GridBagConstraints.HORIZONTAL;
-		gbc_lblNewLabel_1.insets = new Insets(0, 0, 5, 5);
-		gbc_lblNewLabel_1.gridx = 0;
-		gbc_lblNewLabel_1.gridy = 1;
-		infoPane.add(lblNewLabel_1, gbc_lblNewLabel_1);
-
-		JTextArea textArea = new JTextArea();
-		GridBagConstraints gbc_textArea = new GridBagConstraints();
-		gbc_textArea.insets = new Insets(0, 0, 5, 0);
-		gbc_textArea.fill = GridBagConstraints.BOTH;
-		gbc_textArea.gridx = 1;
-		gbc_textArea.gridy = 1;
-		infoPane.add(textArea, gbc_textArea);
-
-		JButton btnUpdate = new JButton("Update");
-		GridBagConstraints gbc_btnUpdate = new GridBagConstraints();
-		gbc_btnUpdate.fill = GridBagConstraints.BOTH;
-		gbc_btnUpdate.insets = new Insets(0, 0, 0, 5);
-		gbc_btnUpdate.gridx = 0;
-		gbc_btnUpdate.gridy = 2;
-		infoPane.add(btnUpdate, gbc_btnUpdate);
 
 		JPanel optionspanel = new JPanel();
 		FlowLayout flowLayout = (FlowLayout) optionspanel.getLayout();
@@ -196,6 +156,10 @@ public class BurpFrame extends JTabbedPane {
 			JButton btnDebugConfig = new JButton("Debug Config");
 			btnDebugConfig.addActionListener(al -> controller.configClient("http://localhost:5984/"));
 			dbgPanel.add(btnDebugConfig);
+
+			JButton multiTest = new JButton("Multi Post");
+			multiTest.addActionListener(al -> controller.multiTest());
+			dbgPanel.add(multiTest);
 		}
 
 	}

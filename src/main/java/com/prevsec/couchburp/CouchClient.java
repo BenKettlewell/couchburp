@@ -27,7 +27,7 @@ import com.google.gson.JsonObject;
 import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import com.prevsec.couchburp.burp.jaxbjson.HttpRequestResponse;
+import com.prevsec.couchburp.models.HttpRequestResponse;
 
 public class CouchClient {
 	private Logger log = Logger.getLogger(this.getClass().getName());

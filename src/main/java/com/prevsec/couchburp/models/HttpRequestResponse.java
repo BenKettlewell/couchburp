@@ -8,11 +8,9 @@
  * Date: Jun 20, 2016
  * Email: wherrin@prevsec.com, willherrin1@gmail.com
  */
-package com.prevsec.couchburp.burp.jaxbjson;
+package com.prevsec.couchburp.models;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.prevsec.couchburp.models.OWASPCategory;
 
 import burp.IHttpRequestResponse;
 import burp.IHttpService;
@@ -20,21 +18,54 @@ import burp.IHttpService;
 public class HttpRequestResponse implements IHttpRequestResponse {
 
 	// This is shit for couchdb here
+	private String type = "http";
 	private String uuid;
 	private String revision;
 	private OWASPCategory category;
 	private String parentuuid;
 
 	// Burp stuff here
-	private byte[] request;
-	private byte[] response;
+	private String request;
+	private String response;
 	private String comment;
 	private String color;
 	private String highlight;
 	private HttpService httpservice;
 
-	public HttpRequestResponse(OWASPCategory category, String parentuuid, byte[] request, byte[] response,
+	@Override
+	public String toString() {
+		return "HttpRequestResponse [uuid=" + uuid + ", revision=" + revision + "]";
+	}
+
+	public HttpRequestResponse(OWASPCategory category, String parentuuid, String request, String response,
+			String comment, String color, String highlight, IHttpService httpservice) {
+		this.category = category;
+		this.parentuuid = parentuuid;
+		this.request = request;
+		this.response = response;
+		this.comment = comment;
+		this.color = color;
+		this.highlight = highlight;
+		this.httpservice = new HttpService(httpservice.getHost(), httpservice.getPort(), httpservice.getProtocol());
+	}
+
+	public HttpRequestResponse(String uuid, String revision, OWASPCategory category, String parentuuid, String request,
+			String response, String comment, String color, String highlight, IHttpService httpservice) {
+		this.uuid = uuid;
+		this.revision = revision;
+		this.category = category;
+		this.parentuuid = parentuuid;
+		this.request = request;
+		this.response = response;
+		this.comment = comment;
+		this.color = color;
+		this.highlight = highlight;
+		this.httpservice = new HttpService(httpservice.getHost(), httpservice.getPort(), httpservice.getProtocol());
+	}
+
+	public HttpRequestResponse(String uuid, OWASPCategory category, String parentuuid, String request, String response,
 			String comment, String color, String highlight, HttpService httpservice) {
+		this.uuid = uuid;
 		this.category = category;
 		this.parentuuid = parentuuid;
 		this.request = request;
@@ -48,33 +79,20 @@ public class HttpRequestResponse implements IHttpRequestResponse {
 	// Contructor from JsonObject
 	public HttpRequestResponse(JsonObject json) {
 		try {
-			System.out.println("_id");
 			uuid = json.get("_id") != null ? json.get("_id").getAsString() : null;
-			System.out.println("rev");
 			revision = json.get("_rev") != null ? json.get("_rev").getAsString() : null;
-			System.out.println("service");
 			if (json.getAsJsonObject("service") != null) {
-				System.out.println("service");
 				JsonObject service = json.getAsJsonObject("service");
-				System.out.println("host");
 				String host = service.get("host") != null ? service.get("host").getAsString() : null;
-				System.out.println("port");
 				int port = service.get("port") != null ? service.get("port").getAsInt() : null;
-				System.out.println("protocol");
 				String protocol = service.get("protocol") != null ? service.get("protocol").getAsString() : null;
 				httpservice = new HttpService(host, port, protocol);
 			}
-			System.out.println("category");
 			setCategory(json.get("category") != null ? json.get("category").getAsString() : null);
-			System.out.println("parent");
 			parentuuid = json.get("parent") != null ? json.get("parent").getAsString() : null;
-			System.out.println("request");
-			request = json.get("request") != null ? json.get("request").getAsString().getBytes() : null;
-			System.out.println("response");
-			response = json.get("response") != null ? json.get("response").getAsString().getBytes() : null;
-			System.out.println("color");
+			request = json.get("request") != null ? json.get("request").getAsString() : null;
+			response = json.get("response") != null ? json.get("response").getAsString() : null;
 			color = json.get("color") != null ? json.get("color").getAsString() : null;
-			System.out.println("highlight");
 			highlight = json.get("highlight") != null ? json.get("highlight").getAsString() : null;
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
@@ -121,19 +139,19 @@ public class HttpRequestResponse implements IHttpRequestResponse {
 
 	// This is stuff for burp below
 	public byte[] getRequest() {
-		return request;
+		return request.getBytes();
 	}
 
 	public void setRequest(byte[] message) {
-		this.request = message;
+		this.request = new String(message);
 	}
 
 	public byte[] getResponse() {
-		return response;
+		return response.getBytes();
 	}
 
 	public void setResponse(byte[] message) {
-		this.response = message;
+		this.response = new String(message);
 	}
 
 	public String getComment() {
@@ -162,10 +180,13 @@ public class HttpRequestResponse implements IHttpRequestResponse {
 
 	public JsonObject toJson() {
 		JsonObject json = new JsonObject();
-		if (uuid != null && revision != null) {
+		if (uuid != null) {
 			json.addProperty("_id", getUUID());
+		}
+		if (revision != null) {
 			json.addProperty("_rev", getRevision());
 		}
+		json.addProperty("type", type);
 		json.add("service", httpservice.toJsonObject());
 		json.addProperty("category", getCategoryAsString());
 		json.addProperty("parent", getParentUuid());

@@ -11,30 +11,25 @@
 package com.prevsec.couchburp.controller;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.PrintStream;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
 import javax.persistence.EntityExistsException;
-import javax.persistence.criteria.From;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JTree;
 import javax.swing.table.TableModel;
+import javax.swing.text.BadLocationException;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.MutableTreeNode;
@@ -42,7 +37,6 @@ import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -51,28 +45,29 @@ import org.lightcouch.ChangesResult.Row;
 import org.lightcouch.CouchDbClient;
 import org.lightcouch.Response;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.stream.JsonReader;
 import com.mashape.unirest.http.HttpMethod;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 import com.prevsec.couchburp.CouchClient;
 import com.prevsec.couchburp.UUIDManager;
-import com.prevsec.couchburp.burp.jaxbjson.HttpRequestResponse;
 import com.prevsec.couchburp.models.BurpTableModel;
+import com.prevsec.couchburp.models.HttpRequestResponse;
+import com.prevsec.couchburp.models.Note;
 import com.prevsec.couchburp.models.OWASPCategory;
 import com.prevsec.couchburp.ui.BurpFrame;
+import com.prevsec.couchburp.ui.HttpPane;
+import com.prevsec.couchburp.ui.NotePane;
+import com.prevsec.test.TestFactory;
 
 import burp.IBurpExtenderCallbacks;
+import burp.IContextMenuFactory;
+import burp.IContextMenuInvocation;
 import burp.IHttpRequestResponse;
-import burp.IHttpService;
-import burp.IMessageEditor;
-import burp.IMessageEditorController;
-import burp.nullsink.NullSink;
+import burp.IScanIssue;
 
-public class BurpController implements IMessageEditorController {
+public class BurpController implements IContextMenuFactory {
 	private BurpFrame frame;
 	private CouchClient client;
 	// This is invisible, so the name is whatever
@@ -80,9 +75,6 @@ public class BurpController implements IMessageEditorController {
 	private DefaultTreeModel treeModel = new DefaultTreeModel(root);
 	private JTree tree = new JTree(treeModel);
 	private IBurpExtenderCallbacks callbacks;
-	private IHttpRequestResponse requestResponse;
-	private IMessageEditor requestViewer;
-	private IMessageEditor responseViewer;
 	private boolean isBurp;
 	private Logger log = Logger.getLogger(this.getClass().getName());
 	private URL url;
@@ -93,18 +85,16 @@ public class BurpController implements IMessageEditorController {
 	private BurpTableModel tableModel = new BurpTableModel();
 	private Executor exec = Executors.newCachedThreadPool();
 	private List<HttpRequestResponse> tryLater = new ArrayList<HttpRequestResponse>();
+	private JPanel infoPanel;
 
 	public BurpController(IBurpExtenderCallbacks callbacks, boolean isBurp) {
 		this.isBurp = isBurp;
 		if (isBurp) {
 			this.callbacks = callbacks;
-			requestViewer = callbacks.createMessageEditor(BurpController.this, false);
-			responseViewer = callbacks.createMessageEditor(BurpController.this, false);
-		} else {
-			requestResponse = new NullSink();
-			responseViewer = new NullSink();
-			requestResponse = new NullSink();
 		}
+		callbacks.registerContextMenuFactory(BurpController.this);
+		System.setOut(new PrintStream(callbacks.getStdout()));
+		System.setErr(new PrintStream(callbacks.getStderr()));
 	}
 
 	public void init() {
@@ -234,55 +224,110 @@ public class BurpController implements IMessageEditorController {
 			public void run() {
 				Changes changes = cdbclient.changes().continuousChanges();
 				while (changes.hasNext()) {
-					Row row = changes.next();
-					System.out.println(
-							"Changes detected for document id: " + row.getId() + ", revision: " + row.getSeq());
-					JsonObject json = getJsonObject(row.getId());
-					if (json == null) {
-						continue;
-					}
-					System.out.println(json);
 					try {
-						HttpRequestResponse fromJson = new HttpRequestResponse(json);
-						DefaultMutableTreeNode search = searchByUUID(fromJson.getUUID());
-						if (search == null) {
-							addAutoOut(fromJson);
-						} else {
-							update(search, fromJson);
-						}
+						System.out.println("found changes");
+						Row row = changes.next();
+						List<HttpRequestResponse> httpRequestResponse = getAllHttps();
+						List<Note> note = getAllNotes();
+						rebuildTree(httpRequestResponse, note);
 					} catch (Exception e) {
-						// System.out.println(
-						// "Error unmarshalling raw JSON: " + json != null ?
-						// json.toString() : "null json");
-						// TODO FIX THIS
-						e.printStackTrace();
-						continue;
 					}
 				}
 			}
+
 		};
 		exec.execute(runnable);
 	}
 
+	private List<Note> getAllNotes() {
+		return getAllDocs().stream().filter(e -> e.get("type").getAsString().equals("note")).map(e -> new Note(e))
+				.collect(Collectors.toList());
+	}
+
+	protected synchronized void rebuildTree(List<HttpRequestResponse> httpRequestResponse, List<Note> notes) {
+		root.removeAllChildren();
+		List<HttpRequestResponse> topLevel = httpRequestResponse.stream().filter(e -> e.getParentUuid() == null)
+				.collect(Collectors.toList());
+		log.info("Toplevel size is: " + topLevel.size());
+		List<HttpRequestResponse> children = httpRequestResponse.stream().filter(e -> e.getParentUuid() != null)
+				.collect(Collectors.toList());
+		for (HttpRequestResponse http : topLevel) {
+			try {
+				addAuto(http);
+			} catch (Exception e) {
+
+			}
+		}
+		for (HttpRequestResponse http : children) {
+			try {
+				addAuto(http);
+			} catch (Exception e) {
+
+			}
+		}
+		for (Note note : notes) {
+			try {
+				addAuto(note);
+			} catch (Exception e) {
+
+			}
+		}
+		tree.updateUI();
+		expandAll();
+	}
+
+	private void addAuto(Note note) {
+		searchByUUID(note.getParentUUID()).add(new DefaultMutableTreeNode(note));
+	}
+
+	private void expandAll() {
+		for (int i = 0; i < tree.getRowCount(); i++) {
+			tree.expandRow(i);
+		}
+	}
+
+	private List<HttpRequestResponse> getAllHttps() {
+		return getAllDocs().stream().filter(e -> e.get("type").getAsString().equals("http"))
+				.map(e -> new HttpRequestResponse(e)).collect(Collectors.toList());
+		// List<HttpRequestResponse> httpList = new
+		// ArrayList<HttpRequestResponse>();
+		// for (JsonObject json : getAllDocs()) {
+		// System.out.println(json.toString());
+		// try {
+		// HttpRequestResponse requestResponse = new HttpRequestResponse(json);
+		// httpList.add(requestResponse);
+		// } catch (Exception e) {
+		// System.out.println(e.getMessage());
+		// }
+		// }
+		// return httpList;
+	}
+
+	private List<JsonObject> getAllDocs() {
+		return cdbclient.view("_all_docs").includeDocs(true).query(JsonObject.class);
+	}
+
 	private void addAutoIn(HttpRequestResponse requestResponse) {
-		
-		//Check to see if we have any id's already in the model
+
+		// Check to see if we have any id's already in the model
 		DefaultMutableTreeNode search = searchByUUID(requestResponse.getUUID());
 		HttpRequestResponse searchHttp = (HttpRequestResponse) search.getUserObject();
-		//Enter this if we find an id
+		// Enter this if we find an id
 		if (search != null) {
-			//Checks if the incoming http has a parent if the current http has a parent
+			// Checks if the incoming http has a parent if the current http has
+			// a parent
 			if (requestResponse.getParentUuid() != null && searchHttp.getParentUuid() != null) {
 				String parentUUID = requestResponse.getParentUuid();
 				String searchUUID = searchHttp.getParentUuid();
-				//Lets compare if the parent has changed
+				// Lets compare if the parent has changed
 				if (!parentUUID.equals(searchUUID)) {
-					//Search for the new parent value
+					// Search for the new parent value
 					DefaultMutableTreeNode newparent = searchByUUID(parentUUID);
-					//If we don't have the parent. We will have to come back to this one.
+					// If we don't have the parent. We will have to come back to
+					// this one.
 					if (newparent == null) {
 						tryLater.add(requestResponse);
-						//Otherwise, we'll add the new parent
+						// Otherwise, we'll add the new parent
 					} else {
 						search.setParent(newparent);
 					}
@@ -330,6 +375,15 @@ public class BurpController implements IMessageEditorController {
 			}
 		}
 
+	}
+
+	public void addAuto(HttpRequestResponse httpRequestResponse) {
+		if (httpRequestResponse.getParentUuid() == null) {
+			DefaultMutableTreeNode categoryParent = searchByCategoryOrCreate(httpRequestResponse);
+			categoryParent.add(new DefaultMutableTreeNode(httpRequestResponse));
+		} else {
+			searchByUUID(httpRequestResponse.getParentUuid()).add(new DefaultMutableTreeNode(httpRequestResponse));
+		}
 	}
 
 	public void addAutoOut(Object object) {
@@ -465,6 +519,14 @@ public class BurpController implements IMessageEditorController {
 		return childNode;
 	}
 
+	private DefaultMutableTreeNode searchByCategoryOrCreate(HttpRequestResponse object) {
+		DefaultMutableTreeNode search;
+		if ((search = searchByCategory(object)) == null) {
+			root.add(search = new DefaultMutableTreeNode(object.getCategory()));
+		}
+		return search;
+	}
+
 	private DefaultMutableTreeNode searchByCategory(HttpRequestResponse object) {
 		log.fine("Searching for suitable parents for " + object.toString());
 		Enumeration<DefaultMutableTreeNode> searchenum = root.breadthFirstEnumeration();
@@ -512,30 +574,6 @@ public class BurpController implements IMessageEditorController {
 		TreePath path = tree.getSelectionPath();
 	}
 
-	@Override
-	public IHttpService getHttpService() {
-		return requestResponse.getHttpService();
-	}
-
-	@Override
-	public byte[] getRequest() {
-		return requestResponse.getRequest();
-	}
-
-	@Override
-	public byte[] getResponse() {
-		return requestResponse.getResponse();
-	}
-
-	public IMessageEditor getRequestPreview() {
-		return requestViewer;
-
-	}
-
-	public IMessageEditor getResponsePreview() {
-		return responseViewer;
-	}
-
 	public TableModel getTableModel() {
 		return tableModel;
 	}
@@ -546,15 +584,116 @@ public class BurpController implements IMessageEditorController {
 
 	public void stashToTree(int rowIndex) {
 		if (rowIndex != -1) {
-			addAutoOut(tableModel.getHttp(rowIndex));
+			cdbclient.post(tableModel.getHttp(rowIndex).toJson());
 		}
 	}
 
 	public void updatePreview(DefaultMutableTreeNode node) {
 		Object userobject = node.getUserObject();
 		if (userobject instanceof HttpRequestResponse) {
-			requestResponse = (HttpRequestResponse) userobject;
+			infoPanel.removeAll();
+			infoPanel.add(new HttpPane(true, (HttpRequestResponse) userobject, this, callbacks));
+		} else if (userobject instanceof Note) {
+			infoPanel.removeAll();
+			try {
+				infoPanel.add(new NotePane(true, (Note) userobject, this));
+			} catch (BadLocationException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
+	}
+
+	public void multiTest() {
+		HttpRequestResponse requestResponse = TestFactory.createHttpRequestResponse("123");
+		cdbclient.post(requestResponse.toJson());
+		cdbclient.post(requestResponse.toJson());
+		requestResponse = TestFactory.createHttpRequestResponse("1234", "1-12345");
+		cdbclient.post(requestResponse.toJson());
+		cdbclient.post(requestResponse.toJson());
+
+	}
+
+	public void setInfo(JPanel infoPanel) {
+		this.infoPanel = infoPanel;
+	}
+
+	@Override
+	public List<JMenuItem> createMenuItems(IContextMenuInvocation invocation) {
+		List<JMenuItem> menu = new ArrayList<JMenuItem>();
+		JMenuItem send = new JMenuItem("Send to Stash");
+		send.addActionListener(e -> menuAction(invocation));
+		menu.add(send);
+		return menu;
+	}
+
+	public void menuAction(IContextMenuInvocation invocation) {
+		if (invocation.getInvocationContext() == invocation.CONTEXT_SCANNER_RESULTS) {
+			IScanIssue[] scanIssues = invocation.getSelectedIssues();
+			for (IScanIssue issue : scanIssues) {
+				for (IHttpRequestResponse http : issue.getHttpMessages()) {
+					HttpRequestResponse requestResponse = new HttpRequestResponse(null, null,
+							new String(http.getRequest()), new String(http.getResponse()), http.getComment(), null,
+							http.getHighlight(), http.getHttpService());
+					tableModel.addHttp(requestResponse);
+					tableModel.fireTableDataChanged();
+				}
+			}
+		} else {
+			IHttpRequestResponse[] messages = invocation.getSelectedMessages();
+			for (IHttpRequestResponse http : messages) {
+				HttpRequestResponse requestResponse = new HttpRequestResponse(null, null, new String(http.getRequest()),
+						new String(http.getResponse()), http.getComment(), null, http.getHighlight(),
+						http.getHttpService());
+				tableModel.addHttp(requestResponse);
+				tableModel.fireTableDataChanged();
+			}
+		}
+	}
+
+	public void updatePreview(int selectedRow) {
+		HttpRequestResponse http = tableModel.getHttp(selectedRow);
+		infoPanel.removeAll();
+		infoPanel.add(new HttpPane(true, http, this, callbacks));
+	}
+
+	public void updateNote(Note note) {
+		if (note.getUuid() == null) {
+			cdbclient.post(note.toJson());
+		} else {
+			cdbclient.update(note.toJson());
+		}
+		infoPanel.removeAll();
+	}
+
+	public void updateHttp(HttpRequestResponse http) {
+		if (http.getUUID() == null) {
+			cdbclient.post(http.toJson());
+		} else {
+			cdbclient.update(http.toJson());
+		}
+		infoPanel.removeAll();
+	}
+
+	public void addByCategory(int selectedRow) {
+		HttpRequestResponse http = tableModel.getHttp(selectedRow);
+		if (http.getUUID() == null) {
+			cdbclient.post(http.toJson());
+		} else {
+			cdbclient.update(http.toJson());
+		}
+	}
+
+	public void addToSelected(int selectedRow, Object lastSelectedPathComponent) {
+		HttpRequestResponse parent = (HttpRequestResponse) lastSelectedPathComponent;
+		HttpRequestResponse http = tableModel.getHttp(selectedRow);
+		http.setParentUuid(parent.getUUID());
+		if (http.getUUID() == null) {
+			cdbclient.post(http.toJson());
+		} else {
+			cdbclient.update(http.toJson());
+		}
+
 	}
 
 }

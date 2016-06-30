@@ -13,8 +13,6 @@ import javax.swing.table.AbstractTableModel;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.prevsec.couchburp.burp.jaxbjson.HttpRequestResponse;
-
 public class BurpTableModel extends AbstractTableModel {
 
 	private List<HttpRequestResponse> http = new ArrayList<HttpRequestResponse>();
