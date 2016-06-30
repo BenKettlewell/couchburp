@@ -1,14 +1,10 @@
 package burp;
 
-/*
- * @(#)IScanQueueItem.java
- *
- * Copyright PortSwigger Ltd. All rights reserved.
- *
- * This code may be used to extend the functionality of Burp Suite Free Edition
- * and Burp Suite Professional, provided that this usage does not violate the
- * license terms for those products.
- */
+/*******************************************************************************
+ * Author: William Patrick Herrin 
+ * Date: 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ *******************************************************************************/
 /**
  * This interface is used to retrieve details of items in the Burp Scanner
  * active scan queue. Extensions can obtain references to scan queue items by

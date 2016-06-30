@@ -1,14 +1,10 @@
 package burp;
 
-/*
- * @(#)IExtensionHelpers.java
- *
- * Copyright PortSwigger Ltd. All rights reserved.
- *
- * This code may be used to extend the functionality of Burp Suite Free Edition
- * and Burp Suite Professional, provided that this usage does not violate the
- * license terms for those products.
- */
+/*******************************************************************************
+ * Author: William Patrick Herrin 
+ * Date: 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ *******************************************************************************/
 import java.net.URL;
 import java.util.List;
 
