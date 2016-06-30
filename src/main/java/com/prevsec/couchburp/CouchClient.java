@@ -1,26 +1,33 @@
+/*******************************************************************************
+ * Author: William Patrick Herrin 
+ * Date: 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ *******************************************************************************/
+/* Component of CouchDB collaboration plugin for Burp Suite Professional Edition
+ * Author: William Patrick Herrin 
+ * Date: Jun 20, 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ */
 package com.prevsec.couchburp;
 
-import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.net.URL;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.persistence.EntityExistsException;
-import javax.xml.bind.JAXBException;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.lightcouch.Changes;
+import org.lightcouch.CouchDbClient;
+import org.lightcouch.Response;
 
+import com.google.gson.JsonObject;
 import com.mashape.unirest.http.HttpMethod;
-import com.mashape.unirest.http.HttpResponse;
-import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import com.prevsec.couchburp.burp.jaxbjson.DBDescriptor;
-import com.prevsec.couchburp.burp.jaxbjson.JsonAdapter;
+import com.prevsec.couchburp.models.HttpRequestResponse;
 
 public class CouchClient {
 	private Logger log = Logger.getLogger(this.getClass().getName());
@@ -29,6 +36,7 @@ public class CouchClient {
 	private String rootmessage;
 	private String connectmessage;
 	private UUIDManager uuidManager;
+	private CouchDbClient cdbclient;
 
 	public void init() {
 		rootmessage = "Json error. Are you sure this is the root directory of a CouchDB instance at: " + url.toString()
@@ -44,7 +52,7 @@ public class CouchClient {
 			log.severe(error);
 			throw new Exception(error);
 		}
-		uuidManager = new UUIDManager(url);
+		cdbclient = new CouchDbClient();
 	}
 
 	public boolean testConnection() throws UnirestException, JSONException {
@@ -92,37 +100,30 @@ public class CouchClient {
 			throw new UnirestException(connectmessage);
 		}
 	}
-/*
-	public DBDescriptor addDatabaseDescriptor(String database, DBDescriptor descriptor) {
-		try {
-			ByteArrayOutputStream os = new ByteArrayOutputStream();
-			JsonAdapter.mashall(descriptor, os);
-			JSONObject response = Unirest.put(url.toString() + database + "/root").body(os.toByteArray()).asJson()
-					.getBody().getObject();
-			if (!response.optString("error").isEmpty() && response.optString("error").equals("conflict")) {
-				return Optional.of(Unirest.get(url.toString() + database + "/root").asJson().getBody().getObject().getString("_rev"));
-			}
-			if (!response.optBoolean("ok")) {
-				String error = parseError(response);
-				log.warning(error);
-				throw new JSONException(error);
-			}
-			descriptor.setRevision(response.getString("_rev"));
-		} catch (UnirestException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (JAXBException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		return null;
 
-	}
-	
-	public Optional<String> checkConflict(){
-		
-	}
-*/
+	/*
+	 * public DBDescriptor addDatabaseDescriptor(String database, DBDescriptor
+	 * descriptor) { try { ByteArrayOutputStream os = new
+	 * ByteArrayOutputStream(); JsonAdapter.mashall(descriptor, os); JSONObject
+	 * response = Unirest.put(url.toString() + database +
+	 * "/root").body(os.toByteArray()).asJson() .getBody().getObject(); if
+	 * (!response.optString("error").isEmpty() &&
+	 * response.optString("error").equals("conflict")) { return
+	 * Optional.of(Unirest.get(url.toString() + database +
+	 * "/root").asJson().getBody().getObject().getString("_rev")); } if
+	 * (!response.optBoolean("ok")) { String error = parseError(response);
+	 * log.warning(error); throw new JSONException(error); }
+	 * descriptor.setRevision(response.getString("_rev")); } catch
+	 * (UnirestException e) { // TODO Auto-generated catch block
+	 * e.printStackTrace(); } catch (JAXBException e) { // TODO Auto-generated
+	 * catch block e.printStackTrace(); } return null;
+	 * 
+	 * }
+	 * 
+	 * public Optional<String> checkConflict(){
+	 * 
+	 * }
+	 */
 	public synchronized String getUUID() throws Exception {
 		try {
 			return uuidManager.getUUID();
@@ -130,7 +131,28 @@ public class CouchClient {
 			// This really shouldn't happen.... but.... stuff happens
 			String message = "Connection error getting new UUID";
 			log.severe(message);
+			System.out.println("John Madden");
 			throw new Exception(message);
 		}
 	}
+
+	public void put(HttpRequestResponse requestResponse) {
+		JsonObject json = requestResponse.toJson();
+		Response ressponse = cdbclient.post(json);
+		if (ressponse.getError() != null) {
+			requestResponse.setUUID(ressponse.getId());
+			requestResponse.setRevision(ressponse.getRev());
+		} else {
+			log.warning("Error occured while trying to store document to CouchDB instance. Error: "
+					+ ressponse.getError() + ". Reason: " + ressponse.getReason());
+		}
+	}
+
+	public void listenToDB() {
+		Changes changes = cdbclient.changes().continuousChanges();
+		while (changes.hasNext()) {
+			changes.next().getId();
+		}
+	}
+
 }

@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Author: William Patrick Herrin 
+ * Date: 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ *******************************************************************************/
+/* Component of CouchDB collaboration plugin for Burp Suite Professional Edition
+ * Author: William Patrick Herrin 
+ * Date: Jun 20, 2016
+ * Email: wherrin@prevsec.com, willherrin1@gmail.com
+ */
 package com.prevsec.couchburp.burp.jaxbjson;
 
 import java.io.OutputStream;
@@ -8,6 +18,8 @@ import javax.xml.bind.JAXBException;
 import javax.xml.bind.Marshaller;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.transform.stream.StreamSource;
+
+import com.google.gson.JsonObject;
 
 public final class JsonAdapter {
 
